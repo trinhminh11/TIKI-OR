@@ -19,18 +19,18 @@ Ví dụ: 1 lời giải của truck (T1) cần phải vận chuyển 5 gói hà
 -	T1: s_0,s_1,s_2, r_1, s_3, r_3, r_2, r_0
 -	T1.Nodes: 1, 0, 0, 2, 1, 3, 3, 1 = 1, 0, 2, 1, 3, 1;
 -	Độ dài Nodes = 6,
-  -	1 0 s_0timeIn s_0timeOut
-  -	0 2 s_1timeIn s_2timeOut
-  -	1 s_1timIn
-  -	2 s_2timIn
-  -	2 1 r_1timeIn r_1timeOut
-  -	1 r_1timeIn
-  -	1 1 s_3timeIn s_3timeOut
-  -	3 s_3timeIn
-  -	3 2 r3_timeIn r2_timeOut
-  - 3 r_3timeIn
-  - 2 r_2timeOut
-  - 1 0 r_0timeIn r_0timeOut
+    -	1 0 s_0timeIn s_0timeOut
+    -	0 2 s_1timeIn s_2timeOut
+    -	1 s_1timIn
+    -	2 s_2timIn
+    -	2 1 r_1timeIn r_1timeOut
+    -	1 r_1timeIn
+    -	1 1 s_3timeIn s_3timeOut
+    -	3 s_3timeIn
+    -	3 2 r3_timeIn r2_timeOut
+    - 3 r_3timeIn
+    - 2 r_2timeOut
+    - 1 0 r_0timeIn r_0timeOut
 
 Với s_0, r_0 là một gói hàng chuyển từ depot về depot có khối lượng, thể tích là 0. Và sẽ bỏ qua không in ra Process s_0 và r_0.
 
