@@ -797,7 +797,7 @@ public:
 
         this->read_sol();
 
-        cout << this->num_serve;
+        // cout << this->num_serve;
 		
     }
 
