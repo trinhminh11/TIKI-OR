@@ -74,3 +74,7 @@ d.	Phép move 2 <n-opt Move>
 e.  Các hyper-paramter cần setting
 -	Time_move_1: thời gian chạy phép move 1
 -	n-opt: số lượng n;
+
+#  Cách sử dụng
+
+chạy main.cpp và nhập input
