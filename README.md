@@ -69,6 +69,7 @@ d.	Phép move 2 <n-opt Move>
 -	Chọn ra n Trucks một lần, xóa đi 25% số Package mà các Trucks đó serve.
 -	Trong n Trucks đã chọn, lặp qua các Package mà chưa được gửi, chọn ra Package để add vào Route của Truck sao cho tổng thời gian di chuyển là nhỏ nhất đến khi nào không add được thêm Package nào nữa vào Truck.
   
+
 e.  Các hyper-paramter cần setting
 -	Time_move_1: thời gian chạy phép move 1
 -	n-opt: số lượng n;
