@@ -1,3 +1,4 @@
+#Mô tả thuật toán
 1.	Mã hóa lời giải
 Một lời giải bao gồm n truck, trong đó:
 -	Mỗi truck bao gồm 1 tập các process
