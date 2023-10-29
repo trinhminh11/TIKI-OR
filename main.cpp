@@ -3,31 +3,21 @@
 using namespace std;
 
 using ll = long long;
-using ull = unsigned long long;
-
-#define endl "\n"
+using ld = long double;
 #define pb push_back
-#define pf push_front
+// #define endl "\n"
 
-//random seed
-mt19937 rng(11042004);
-
-//infinity
-const ll INF = 1e9;
-
-//bound
+const ll SEED = 27102001;
+const ll INF = 1e9 + 7;
 const int bound = 1001;
+ll start_time;
 
-const int num_candidate = 5;
-
-//distance_matrix
-int distance_matrix[bound][bound];
-//number of node, number of trucks, number of packages
-int nV, K, N;
+//random SEED
+mt19937 rng(SEED);
 
 //h:m:s to second
 int time_to_sec(string time){
-    int h = (time[0] - '0') * 10 + (time[1] - '0');
+	int h = (time[0] - '0') * 10 + (time[1] - '0');
 	int m = (time[3] - '0') * 10 + (time[4] - '0');
 	int s = (time[6] - '0') * 10 + (time[7] - '0');
 	return h*3600 + m*60 + s;
@@ -35,9 +25,9 @@ int time_to_sec(string time){
 
 //second to h:m:s
 string sec_to_time(int sec){
-    string ans = "";
-    int x;
-    x = sec / 3600;
+	string ans = "";
+	int x;
+	x = sec / 3600;
 	sec -= 3600 * x;
 	//hours
 	ans += char(x / 10 + '0');
@@ -45,807 +35,615 @@ string sec_to_time(int sec){
 	ans += ':';
 	x = sec / 60;
 	sec -= 60 * x;
-    //minutes
+	//minutes
 	ans += char(x / 10 + '0');
 	ans += char(x % 10 + '0');
 	ans += ':';
 	x = sec;
-    //second
+	//second
 	ans += char(x / 10 + '0');
 	ans += char(x % 10 + '0');
 	return ans;
 }
 
-//struct to read solution
-struct Step2{
-    int pID;
-    string timeIn;
-};
 
-//struct to read solution
-struct Step{
-    int ID;
-    vector<Step2> nodes;
-    string timeIn;
-    string timeOut;
-};
+// Distance_matrix;
+int nV;
+double distance_matrix[bound][bound];
 
-//node is Sender or Receiver base on boolean is_Sen
-class Node{
-public:
-    Node(){};
-    int pID, ID, load, s, e;
-    double mass, vol;
-    bool is_Sen;
-    int timeDone;
-
-    void init(int pID, int ID, double mass, double vol, int load, int s, int e, bool is_Sen){
-        this->pID = pID;
-        this->ID = ID;
-        this->mass = mass;
-        this->vol = vol;
-        this->load = load;
-        this->s = s;
-        this->e = e;
-        this->is_Sen = is_Sen;
-        this->timeDone = s + load;
-    }
-
-    void call(){
-        if(is_Sen){
-            cout << "pID: " << this->pID << ", sID: " << this->ID << ", mass: " << this->mass << ", vol: " << this->vol << ", load: " << sec_to_time(this->load) << ", " << sec_to_time(this->s) << "-" << sec_to_time(this->e) << endl;
-        }
-        else{
-            cout << "pID: " << this->pID << ", rID: " << this->ID << ", mass: " << this->mass << ", vol: " << this->vol << ", unload: " << sec_to_time(this->load) << ", " << sec_to_time(this->s) << "-" << sec_to_time(this->e) << endl;
-        }
-    }
-    
-};
 
 //class Package
-class Package{
-public:
-    Package(int ID, int sID, int rID, double mass, double vol, int load, int unload, int ep, int lp, int ed, int ld){
-        this->init(ID, sID, rID,  mass, vol, load, unload, ep, lp, ed, ld);
-    };
-    int pID, sID, rID, load, unload, ep, lp, ed, ld, mid;
-    double mass, vol;
-    Node sender, receiver;
-    
-    void init(int ID, int sID, int rID, double mass, double vol, int load, int unload, int ep, int lp, int ed, int ld){
-        this->pID = ID;
-        this->sID = sID;
-        this->rID = rID;
-        this->mass = mass;
-        this->vol = vol;
-        this->load = load;
-        this->unload = unload;
-        this->ep = ep;
-        this->lp = lp;
-        this->ed = ed;
-        this->ld = ld;
+int N;
+int Packages_Sender_ID[bound], Packages_Receiver_ID[bound];
+ld Packages_mass[bound], Packages_vol[bound];
+// Sender Process
+int Packages_Sender_s[bound], Packages_Sender_e[bound], Packages_load[bound];
+// Receiver Process
+int Packages_Receiver_s[bound], Packages_Receiver_e[bound], Packages_unload[bound];
+bool Serves[bound];
 
-        this->mid = (ep+lp+ed+ld)/4;
-        
-        // Sender of package
-        this->sender.init(ID, sID, mass, vol, load, ep, lp, true);
-        // Receiver of package
-        this->receiver.init(ID, rID, mass, vol, unload, ed, ld, false);
-    }
-
-    void call(){
-        cout << "pID: " << this->pID << ", sID: " << this->sID << ", rID: " << this->rID << ", mass: " << this->mass << ", vol: " << this->vol << ", load: " << sec_to_time(this->load) << ", unload: " << sec_to_time(this->unload) << ", " << sec_to_time(this->ep) << "-" << sec_to_time(this->lp) << ", " << sec_to_time(this->ed) << "-" << sec_to_time(this->ld) << endl;
-    }        
+//Process is Sender or Receiver base on boolean is_Sen
+struct Process {
+	int pID;
+	int ID;
+	int timeDone = 0;
+	bool is_Sen;
 };
 
-//class Truck
-class Truck{
-public:
-    int ID, hub, st, et;
-    double mass, vol, vel;
-    //solution route and temporary Route
-    vector<Node> S_R_Route, temp_Route, candidate[num_candidate];
-    int candidate_serve[num_candidate];
 
-    Truck(int ID, int hub, int st, int et, double mass, double vol, double vel){
-        this->ID = ID;
-        this->hub = hub;
-        this->st = st;
-        this->et = et;
-        this->mass = mass;
-        this->vol = vol;
-        this-> vel = vel;
+// class Truck
+int K;
+int Truck_indexes[bound];
+int Trucks_hub[bound];
+int Trucks_s[bound], Trucks_e[bound];
+ld Trucks_mass[bound], Trucks_vol[bound], Trucks_vel[bound];
+// sol_Routes of Truck
+vector<Process> sol_Routes[bound];
 
-        Package dummy(0, hub, hub, 0, 0, 0, 0, st, st, st, st);
-        dummy.sender.timeDone = st;
-        dummy.receiver.timeDone = st;
-        this->S_R_Route.pb(dummy.sender);
-        this->S_R_Route.pb(dummy.receiver);
+// Solution  struct to decode
+// Step is each ation of the Truck do in that Node
+struct Step {
+	int pID;
+	string timeIn;
+};	
+// Node represent all the action that the Truck do in that Node ID
+struct Node {
+	int ID;
+	vector<Step> processes;
+	string timeIn;
+	string timeOut;
+};
+// end Solution struct
 
-        this->temp_Route = this->S_R_Route;
-        
-        for(int i = 0; i<num_candidate; i++){
-            this->candidate[i] = this->S_R_Route;
-            this->candidate_serve[i] = 0;
-        }
+// all Truck methods:
+int travel_Time(int start, int end, int Truck_ID) {
+	return ceil(( 3600 * double(distance_matrix[start][end]) / Trucks_vel[Truck_ID] ));
+}
 
-    }
+void Truck_calc_runtime(int Truck_ID) {
+	int current_Time = Trucks_s[Truck_ID];
 
-    void call(){
-        cout << "Truck: " << this->ID << ", hub: " << this->hub << ", start: " << this->st << ", end: " << this->et << ", mass: " << this->mass << ", vol: " << this->vol << ", vel: " << this->vel << endl; 
-    }
+	for(int i = 0; i < sol_Routes[Truck_ID].size(); i++) {
+		int Package_ID = sol_Routes[Truck_ID][i].pID;
 
-    //check mass and vol constraints
-    bool check_mass_vol(vector<Node> &Route){
-        double current_mass = 0;
-		double current_vol = 0;
-        for(int i = 0; i < Route.size(); i++){
-            if (Route[i].is_Sen){
-                current_mass += Route[i].mass;
-                current_vol += Route[i].vol;
-                if (current_mass > this->mass || current_vol > this->vol){
-                    return false;
-                }
-            }
-            else{
-                current_mass -= Route[i].mass;
-                current_vol -= Route[i].vol;
-            }
-        }
-
-        return true;
-    }
-
-    //calc runtime in Route, return -1 if not sastified time constraints
-    int calc_runtime(vector<Node> &Route){
-
-        int current_time = this->st;
-
-        if (Route.size() == 2){
-            return current_time;
-        }
-        
-        for (int i = 1; i < Route.size() - 1; i++){
-            int start = Route[i].ID;
-            int end = Route[i+1].ID;
-            int temp_time = current_time + int(ceil(3600*double(distance_matrix[start-1][end-1])/this->vel));
-
-            if (temp_time <= Route[i+1].s){
-                current_time = Route[i+1].s + Route[i+1].load;
-                Route[i+1].timeDone = current_time;
-            }
-            else if(temp_time > Route[i+1].e){
-                return -1;
-            }
-            else{
-                current_time += int(ceil(3600*double(distance_matrix[start-1][end-1])/this->vel)) + Route[i+1].load;
-                Route[i+1].timeDone = current_time;
-            }
-        }
-
-        return current_time;
-    }
-
-    //check all constraints
-    bool check_constraints(vector<Node> &Route){
-        bool check_time = true;
-        int current_time = this->calc_runtime(Route);
-        bool c_mass_vol = this->check_mass_vol(Route);
-
-        if (current_time == -1 ||  c_mass_vol == false){
-            return false;
-        }
-
-        current_time += int(ceil( 3600*distance_matrix[Route[Route.size()-1].ID-1][this->hub-1]/this->vel ));
-
-        if (current_time > this->et){
-            return false;
-        }
-
-        return true;
-
-    }
-
-    //insert a Package to Route
-    int Insert(Package &package, bool is_temp = false, bool is_Insert = true){
-        vector<Node> used;
-
-        if (is_temp){
-			used = this->temp_Route;
-        }
+		if (i == 0){
+			current_Time += travel_Time(Trucks_hub[Truck_ID], sol_Routes[Truck_ID][i].ID, Truck_ID);
+		}
 		else{
-			used = this->S_R_Route;
-        } 
+			current_Time += travel_Time(sol_Routes[Truck_ID][i-1].ID, sol_Routes[Truck_ID][i].ID, Truck_ID);
+		}
+
+		//Sender
+		if(sol_Routes[Truck_ID][i].is_Sen) {
+			if (current_Time < Packages_Sender_s[Package_ID]){
+				current_Time = Packages_Sender_s[Package_ID];
+			}
+			current_Time += Packages_load[Package_ID];
+
+		} 
+		//Receiver
+		else {
+			if (current_Time < Packages_Receiver_s[Package_ID]){
+				current_Time = Packages_Receiver_s[Package_ID];
+			}
+			current_Time += Packages_unload[Package_ID];
+		}
+		sol_Routes[Truck_ID][i].timeDone = current_Time;
+	}
+}
+
+int Truck_Insert(int Package_ID, int Truck_ID, bool is_Insert) {
+
+	int best_Sender_index, best_Receiver_index;
+
+	ld current_mass = 0, current_vol = 0;
+
+	int best_time = INF;
+
+	for(int i = 0; i <= sol_Routes[Truck_ID].size(); i++) {
+		int current_Time;
+
+		// if we add sender to index, do we sastisfied time constraint
+		if (i==0) {
+			current_Time = Trucks_s[Truck_ID] + travel_Time(Trucks_hub[Truck_ID], Packages_Sender_ID[Package_ID], Truck_ID);
+
+		}
+		else {
+			current_Time = sol_Routes[Truck_ID][i-1].timeDone + travel_Time(sol_Routes[Truck_ID][i-1].ID, Packages_Sender_ID[Package_ID], Truck_ID);
+		} 
+
+		if (current_Time < Packages_Sender_s[Package_ID]){
+			current_Time = Packages_Sender_s[Package_ID];
+		}
+
+		// if current_time > timewindow of Package
+		if(current_Time > Packages_Sender_e[Package_ID]){
+			break;
+		}
+
+		current_Time += Packages_load[Package_ID];
+
+		// temporary mass and vol after insert sender to index i
+		ld temp_mass = current_mass + Packages_mass[Package_ID];
+		ld temp_vol = current_vol + Packages_vol[Package_ID];
 		
-
-		vector<Node> temp_Route = used;
-
-		vector<Node> best_Route = used;
-
-		int best_time = INF;
-
-		int n = temp_Route.size();
-		int m = n + 1;
-
-		for (int i = 2; i < n+1; i++){
-            if (package.sender.e < temp_Route[i-1].timeDone){
-                break;
-            }
-
-            temp_Route.insert(temp_Route.begin() + i, 1, package.sender);
-
-            if(this->check_constraints(temp_Route)){
-
-                for (int j = i+1; j < m+1; j++){
-                    // cout << sec_to_time(temp_Route[j].timeDone) << endl;
-                    if (package.receiver.e < temp_Route[j-1].timeDone){
-                        // cout << sec_to_time(package.receiver.e) << " " << sec_to_time(temp_Route[j-1].timeDone) <<" " << m << endl;
-                        break;
-                    }
-
-                    temp_Route.insert(temp_Route.begin() + j, 1, package.receiver);
-                    if (this->check_constraints(temp_Route)){
-                        int temp_time = this->calc_runtime(temp_Route) + int(ceil( 3600*distance_matrix[temp_Route[temp_Route.size()-1].ID-1][this->hub-1]/this->vel ));
-                        if (temp_time < best_time){
-                            best_Route = temp_Route;
-                            best_time = temp_time;
-                        }
-                    }
-
-                    temp_Route = used;
-                    temp_Route.insert(temp_Route.begin() + i, 1, package.sender);
-
-                }
-            }
-
-            temp_Route = used;
-        }
-
-        if (best_time != INF && is_Insert){
-            if (is_temp){
-                this->temp_Route = best_Route;
-            }
-            else{
-                this->S_R_Route = best_Route;
-            }
-
-        }
-
-        return best_time;
-    }
-
-    //from Route to solution
-    vector<Step> Route_to_Sol(){
-
-        vector<Step> solution;
-
-        Step first_temp;
-        first_temp.ID = this->hub;
-        first_temp.timeIn = sec_to_time(this->st);
-        first_temp.timeOut = sec_to_time(this->st);
-
-        solution.pb(first_temp);
-
-        if (this->S_R_Route.size() == 2){
-            
-        }
-
-        else{
-            int n = this->S_R_Route.size();
-            this->calc_runtime(this->S_R_Route);
-            
-            int solution_index = 0;
-
-            for(int i = 2; i < n; i++){
-
-                Step2 step2;
-                step2.pID = this->S_R_Route[i].pID;
-                step2.timeIn = sec_to_time( this->S_R_Route[i].timeDone - this->S_R_Route[i].load );
-
-
-                if (this->S_R_Route[i].ID == solution[solution_index].ID){
-
-                    solution[solution_index].nodes.pb(step2);
-                    solution[solution_index].timeOut = sec_to_time(this->S_R_Route[i].timeDone);
-                }
-                else{
-                    solution_index += 1;
-                
-                    Step temp;    
-                    temp.ID = this->S_R_Route[i].ID;
-                    temp.nodes.pb(step2);
-                    temp.timeIn = sec_to_time(this->S_R_Route[i].timeDone - this->S_R_Route[i].load);
-                    temp.timeOut = sec_to_time(this->S_R_Route[i].timeDone);
-
-                    solution.pb(temp);
-
-                }
-            }
-            Step last_temp;
-            last_temp.ID = this->hub;
-            last_temp.timeIn = sec_to_time(this->S_R_Route[n-1].timeDone + int(ceil( double(3600*distance_matrix[this->S_R_Route[n-1].ID-1][this->hub-1]) /this->vel)) );
-            last_temp.timeOut = last_temp.timeIn;
-            
-            solution.pb(last_temp);
-        }
-
+		// if sastisfied mass and vol constraint
+		if(temp_mass <= Trucks_mass[Truck_ID] && temp_vol <= Trucks_vol[Truck_ID]) {
 			
+			int prev_ID = Packages_Sender_ID[Package_ID];
 
+			// insert receiver to index j
+			for(int j = i; j <= sol_Routes[Truck_ID].size(); j++) {
+				
+				// calc runtime, temp_mass, temp_vol
+				if(j > i) {
+					int current_pID = sol_Routes[Truck_ID][j - 1].pID;
+
+					if(sol_Routes[Truck_ID][j - 1].is_Sen) {
+						current_Time += travel_Time(prev_ID, Packages_Sender_ID[current_pID], Truck_ID);
+						if(current_Time > Packages_Sender_e[current_pID]){
+							break;
+						}
+
+						if (current_Time < Packages_Sender_s[current_pID]){
+							current_Time = Packages_Sender_s[current_pID];
+						}
+						current_Time += Packages_load[current_pID];
+
+						temp_mass += Packages_mass[current_pID];
+						temp_vol += Packages_vol[current_pID];
+						if(temp_mass > Trucks_mass[Truck_ID] || temp_vol > Trucks_vol[Truck_ID]){
+							break;
+						}
+
+						prev_ID = Packages_Sender_ID[current_pID];
+					} 
+					else {
+						current_Time += travel_Time(prev_ID, Packages_Receiver_ID[current_pID], Truck_ID);
+						if(current_Time > Packages_Receiver_e[current_pID]){
+							break;
+						}
+						if (current_Time < Packages_Receiver_s[current_pID]){
+							current_Time = Packages_Receiver_s[current_pID];
+						}
+						current_Time += Packages_unload[current_pID];
+
+						temp_mass -= Packages_mass[current_pID];
+						temp_vol -= Packages_vol[current_pID];
+
+						prev_ID = Packages_Receiver_ID[current_pID];
+					}
+
+				}
+
+
+				// if add Receiver to Route
+				int temp_Time = current_Time + travel_Time(prev_ID, Packages_Receiver_ID[Package_ID], Truck_ID);
+				if(temp_Time > Packages_Receiver_e[Package_ID]){
+					break;
+				}
+
+				if (temp_Time < Packages_Receiver_s[Package_ID]){
+					temp_Time = Packages_Receiver_s[Package_ID];
+				}
+
+				temp_Time += Packages_unload[Package_ID];
+				
+				int temp_prev_ID = Packages_Receiver_ID[Package_ID];
+
+				//check all constraint till second last Route
+				bool check_constraints = true;
+
+				// run to the lass Process in the Route
+				for(int k = j; k < sol_Routes[Truck_ID].size(); k++) {
+					int current_pID = sol_Routes[Truck_ID][k].pID;
+					if(sol_Routes[Truck_ID][k].is_Sen) {
+						temp_Time += travel_Time(temp_prev_ID, Packages_Sender_ID[current_pID], Truck_ID);
+						if(temp_Time > Packages_Sender_e[current_pID]) {
+							check_constraints = false;
+							break;
+						}
+
+						if (temp_Time < Packages_Sender_s[current_pID]){
+							temp_Time = Packages_Sender_s[current_pID];
+						}
+
+						temp_Time += Packages_load[current_pID];
+
+						temp_prev_ID = Packages_Sender_ID[current_pID];
+					} 
+					else {
+						temp_Time += travel_Time(temp_prev_ID, Packages_Receiver_ID[current_pID], Truck_ID);
+						if(temp_Time > Packages_Receiver_e[current_pID]) {
+							check_constraints = false;
+							break;
+						}
+
+						if (temp_Time < Packages_Receiver_s[current_pID]){
+							temp_Time = Packages_Receiver_s[current_pID];
+						}
+
+						temp_Time += Packages_unload[current_pID];
+
+						temp_prev_ID = Packages_Receiver_ID[current_pID];
+					}
+
+				}
+				
+				//actual runtime when return to hub
+				int runtime = temp_Time + travel_Time(temp_prev_ID, Trucks_hub[Truck_ID], Truck_ID);
+				// if sastisfied last constraint
+				if( check_constraints && runtime <= Trucks_e[Truck_ID]) {
+					//update best position to insert
+					if(runtime < best_time){
+						best_time = runtime;
+						best_Sender_index = i;
+						best_Receiver_index = j + 1;
+					}
+				}
+			}
+		}
+
+		if(i == sol_Routes[Truck_ID].size()) {
+			break;
+		}
+		
+		// calc actual current mass, vol
+		if(sol_Routes[Truck_ID][i].is_Sen) {
+			current_vol += Packages_vol[sol_Routes[Truck_ID][i].pID];
+			current_mass += Packages_mass[sol_Routes[Truck_ID][i].pID];
+		} 
+		else {
+			current_vol -= Packages_vol[sol_Routes[Truck_ID][i].pID];
+			current_mass -= Packages_mass[sol_Routes[Truck_ID][i].pID];
+		}
+	}	
+
+
+	if(best_time != INF && is_Insert) {
+		sol_Routes[Truck_ID].insert(sol_Routes[Truck_ID].begin() + best_Sender_index, {Package_ID, Packages_Sender_ID[Package_ID], 0, true});
+		sol_Routes[Truck_ID].insert(sol_Routes[Truck_ID].begin() + best_Receiver_index, {Package_ID, Packages_Receiver_ID[Package_ID], 0, false});
+		//Truck_calc_runtime
+		Truck_calc_runtime(Truck_ID);
+	}
+
+	return best_time;
+}
+
+vector<Node> Truck_Route_to_Sol(int Truck_ID){
+
+	vector<Node> solution;
+
+	Node first_temp;
+	first_temp.ID = Trucks_hub[Truck_ID];
+	first_temp.timeIn = sec_to_time(Trucks_s[Truck_ID]);
+	first_temp.timeOut = sec_to_time(Trucks_s[Truck_ID]);
+
+	solution.pb(first_temp);
+
+	if (sol_Routes[Truck_ID].size() == 0){   
 		return solution;
-
-    }
-
-};
+	}
 
 
-int count_serve(int serve[]){
-    int ans = 0;
-    for(int i = 0; i < N;i++){
-        if (serve[i]==1){
-            ans ++;
-        }
-    }
-    return ans;
+	int n = sol_Routes[Truck_ID].size();
+
+	int solution_index = 0;
+
+	for(int i = 0; i < n; i++){
+		Step step;
+		step.pID = sol_Routes[Truck_ID][i].pID;
+		if (sol_Routes[Truck_ID][i].is_Sen){
+			step.timeIn = sec_to_time(sol_Routes[Truck_ID][i].timeDone - Packages_load[sol_Routes[Truck_ID][i].pID]);
+		}
+		else{
+			step.timeIn = sec_to_time(sol_Routes[Truck_ID][i].timeDone - Packages_unload[sol_Routes[Truck_ID][i].pID]);
+		}
+
+
+		if (sol_Routes[Truck_ID][i].ID == solution[solution_index].ID){
+
+			solution[solution_index].processes.pb(step);
+			solution[solution_index].timeOut = sec_to_time(sol_Routes[Truck_ID][i].timeDone);
+		}
+		else{
+			solution_index += 1;
+
+			Node temp;    
+			temp.ID = sol_Routes[Truck_ID][i].ID;
+
+			temp.processes.pb(step);
+
+			if (sol_Routes[Truck_ID][i].is_Sen){
+				temp.timeIn = sec_to_time(sol_Routes[Truck_ID][i].timeDone - Packages_load[sol_Routes[Truck_ID][i].pID]);
+			}
+			else{
+				temp.timeIn = sec_to_time(sol_Routes[Truck_ID][i].timeDone - Packages_unload[sol_Routes[Truck_ID][i].pID]);
+			}
+
+
+			temp.timeOut = sec_to_time(sol_Routes[Truck_ID][i].timeDone);
+
+			solution.pb(temp);
+
+		}
+	}
+
+	Node last_temp;
+	last_temp.ID = Trucks_hub[Truck_ID];
+	last_temp.timeIn = sec_to_time(sol_Routes[Truck_ID][sol_Routes[Truck_ID].size() - 1].timeDone + travel_Time(solution[solution.size()-1].ID, Trucks_hub[Truck_ID], Truck_ID) );
+	last_temp.timeOut = last_temp.timeIn;
+
+	solution.pb(last_temp);
+
+	return solution;
+
 }
 
-vector<Truck> trucks;
-vector<Package> packages;
+// end Truck methods
 
 
-//Import Data
+// class Solver
+
+// all Solver methods
 void import_data(){
+	cin >> nV;
+	for(int i = 1; i <= nV; i++) {
+		for(int j = 1; j <= nV; j++) {
+			cin >> distance_matrix[i][j];
+		}
+	}
 
-    //distance matrix
-    cin >> nV;
-	for(int i = 0; i<nV;i++){
-        for (int j = 0; j < nV; j++){
-            cin >> distance_matrix[i][j];
-        }
-    }
+	cin >> K;	
+	for(int i = 1; i <= K; i++) {		
+		Truck_indexes[i] = i;
 
-    //Trucks
-    cin >> K;
-
-    for(int i = 0; i<K; i++){
-        int hub;
-		string temp_st, temp_et;
-        double mass, vol, vel; 
-        int st, et;
-
-        cin >> hub >> temp_st >> temp_et >> mass >> vol >> vel;
+		cin >> Trucks_hub[i];
 		
-		st = time_to_sec(temp_st);
-        et = time_to_sec(temp_et);
+		string temp_Time; 
 
-        Truck truck(i+1, hub, st, et, mass, vol, vel);
-
-        trucks.pb(truck);
+		cin >> temp_Time;
+		Trucks_s[i] = time_to_sec(temp_Time);
 		
-    }
+		cin >> temp_Time;
+		Trucks_e[i] = time_to_sec(temp_Time);
 
-    //Packages
-    cin >> N;
+		cin >> Trucks_mass[i];
+		cin >> Trucks_vol[i];
+		cin >> Trucks_vel[i];
+	}	
 
-    for(int i = 0; i<N; i++){
-        int sID, rID, load, unload;
-        double mass, vol;
-        string temp_ep, temp_lp, temp_ed, temp_ld;
-        int ep, lp, ed, ld;
+	cin >> N;
+	for(int i = 1; i <= N; i++) {
+		cin >> Packages_Sender_ID[i] >> Packages_Receiver_ID[i];
 
-        cin >> sID >> rID >> mass >> vol >> load >> unload >> temp_ep >> temp_lp >> temp_ed >> temp_ld;
+		cin >> Packages_mass[i];
+		cin >> Packages_vol[i];
 
-        ep = time_to_sec(temp_ep);
-        lp = time_to_sec(temp_lp);
-        ed = time_to_sec(temp_ed);
-        ld = time_to_sec(temp_ld);
+		cin >> Packages_load[i];
+		cin >> Packages_unload[i];
 
-        Package package(i+1, sID, rID, mass, vol, load, unload, ep, lp ,ed, ld);
-
-        packages.pb(package);
-    }
+		string temp_Time; 
+		cin >> temp_Time;
+		Packages_Sender_s[i] = time_to_sec(temp_Time);
+		cin >> temp_Time;
+		Packages_Sender_e[i] = time_to_sec(temp_Time);
+		
+		cin >> temp_Time;
+		Packages_Receiver_s[i] = time_to_sec(temp_Time);
+		cin >> temp_Time;
+		Packages_Receiver_e[i] = time_to_sec(temp_Time);
+	}
+	
 }
 
-int find_Package_base_on_ID(int ID){
-    for (int i = 0; i<N;i++){
-        if (packages[i].pID == ID){
-            return i;
-        }
-    }
-    cout <<"false";
-    exit(0);
+// run local search with n-opt
+void local_n_opt(int num_opt, int &num_serve, int &Del_percentage){
+
+	vector<Process> temp_Routes[K+1];
+
+	shuffle(Truck_indexes + 1, Truck_indexes + 1 + K, rng);
+
+	int i = 0;
+
+	for(int i = 1; i <= K-num_opt; i++) {
+		bool temp_Serves[N+1];
+
+		for (int j = 1; j <= N; j++){
+			temp_Serves[j] = Serves[j];
+		}
+
+		int temp_num_serve = num_serve;
+		for(int j = i; j <= i + num_opt; j++) {
+			int Truck_ID = Truck_indexes[j];
+
+			temp_Routes[Truck_ID] = sol_Routes[Truck_ID];
+
+			sol_Routes[Truck_ID].clear();
+
+			for(int i = 0; i < temp_Routes[Truck_ID].size(); i++) {
+				if(temp_Routes[Truck_ID][i].is_Sen) {
+					if(rng() % 100 < Del_percentage) {
+						Serves[temp_Routes[Truck_ID][i].pID] = 0;
+						temp_num_serve --;
+					} 
+					else {
+						sol_Routes[Truck_ID].pb(temp_Routes[Truck_ID][i]);
+					}
+				} 
+				else {
+					if(Serves[temp_Routes[Truck_ID][i].pID]) {
+						sol_Routes[Truck_ID].pb(temp_Routes[Truck_ID][i]);
+					}
+				}
+			}
+			
+			Truck_calc_runtime(Truck_ID);
+		}
+
+		int cantInsert[N+1];
+
+		for(int j = i; j <= i + num_opt; j++) {
+			for(int Package_ID = 1; Package_ID <= N; Package_ID++){
+				if(Serves[Package_ID]){
+					cantInsert[Package_ID] = true;
+					continue;
+				}
+				cantInsert[Package_ID] = false;
+			}
+
+			int Truck_ID = Truck_indexes[j];
+			
+			while(true) {
+				int best_Package_ID = 0, best_time = INF;
+				for(int Package_ID = 1; Package_ID <= N; Package_ID++) {
+					if(cantInsert[Package_ID]) {
+						continue;
+					}
+					int temp_time = Truck_Insert(Package_ID, Truck_ID, false);
+					if(temp_time == INF) {
+						cantInsert[Package_ID] = true;
+					}
+					else if(temp_time < best_time) {
+						best_time = temp_time;
+						best_Package_ID = Package_ID;
+					}
+				}
+
+				if (best_Package_ID == 0){
+					break;
+				}
+
+				Serves[best_Package_ID] = true;
+				cantInsert[best_Package_ID] = true;
+				Truck_Insert(best_Package_ID, Truck_ID, true);
+				temp_num_serve ++;
+			}
+		}
+
+		//update best solution
+		if(num_serve <= temp_num_serve) {
+			num_serve = temp_num_serve;
+		}
+		
+		//if current solution worst than old solution, reset current solution to old solution
+		else {
+
+			for (int j = 1; j <= N; j++){
+				Serves[j] = temp_Serves[j];
+			}
+
+			for(int j = i; j <= i + num_opt; j++) {
+				int Truck_ID = Truck_indexes[j];
+				sol_Routes[Truck_ID] = temp_Routes[Truck_ID];
+			}
+
+
+		}
+	}
+	
 }
 
-//Solver class
-class Solver{
-public:
-    int serve[bound];
-    int used_truck;
-    int total_runtime = 0;
-    int num_serve = 0;
-    vector<int> candidate_serve[num_candidate];
-    int num_candidate_serve = 0;
-    //solutions vector
-    vector<vector<Step>> solutions;			
-    string solution = "";		
-    //cost package			
-    Solver(){init();};
-
-    void init(){
-        this->used_truck = K;
-        for(int i = 0; i<K; i++){
-            vector<Step> sol;
-            this->solutions.pb(sol); 
-        }
-
-        for(int i = 0; i<N;i++){
-            this->serve[i] = 0;
-        }
-
-    }
-
-    //read solution
-    void read_sol(){
-        for (auto sol : this->solutions){
-            cout << sol.size() << endl;
-            
-            for (int i = 0; i<sol.size()-1; i++){
-                cout << sol[i].ID << " " << sol[i].nodes.size() << " " << sol[i].timeIn << " " << sol[i].timeOut << endl;
-
-                for (int j = 0; j < sol[i].nodes.size(); j++){
-                    cout << sol[i].nodes[j].pID << " " << sol[i].nodes[j].timeIn << endl;
-                }
-            }
-
-            cout << sol[sol.size()-1].ID << " " << sol[sol.size()-1].nodes.size() << " " << sol[sol.size()-1].timeIn << " " << sol[sol.size()-1].timeOut << endl;
-
-            this->total_runtime += time_to_sec(sol[sol.size()-1].timeIn) - time_to_sec(sol[0].timeIn);
-        }
-
-    }
-
-    void local_search(int time){
-        int cost[N];
-        int Package_IDs[N];
-        for (int i = 0; i<N;i++){
-            Package_IDs[i] = i+1; 
-        }
-
-        while (clock() < time*CLOCKS_PER_SEC){
-
-            for (auto &truck: trucks){
-                truck.temp_Route = truck.S_R_Route;
-            }
-
-            int current_serve[N];
-
-            for(int i =0; i<N;i++){
-                current_serve[i] = this->serve[i];
-            }
-
-            int current_num_serve = this->num_serve;
-
-
-            int numDel = rng() % min(N/7, 50) + 1;
-
-            for(int z=0; z<numDel;z++){
-                //reset cost to 0
-                for(int i =0;i<N;i++){
-                    cost[i] = 0;
-                }
-
-                //calc cost function
-                for(int i = 0; i < K; i++) {
-
-                    for(int j = 2; j < trucks[i].temp_Route.size(); j++) {
-                        int package = trucks[i].temp_Route[j].pID-1;
-
-                        if (trucks[i].temp_Route[j-1].pID-1 != package){
-                            cost[package] += trucks[i].temp_Route[j].timeDone - trucks[i].temp_Route[j-1].timeDone;
-                        }
-
-                        if (i+1 == trucks[i].temp_Route.size()){
-                            cost[package] += int( ceil( 3600 * double(distance_matrix[trucks[i].temp_Route[j].ID-1][trucks[i].hub-1]) / trucks[i].vel ) );
-                        }
-                        else{
-                            cost[package] += trucks[i].temp_Route[j+1].timeDone - trucks[i].temp_Route[j].timeDone;
-                        }
-
-                    }
-                }
-
-
-
-                //Sort base on cost
-                sort(Package_IDs, Package_IDs + N, [&](int x, int y) {
-                    return cost[x-1] > cost[y-1];
-                });
-
-                //choose package to delete
-				int min_index = rng() % 200 + 100;
-				int rPackage_ID = Package_IDs[rng() % min( (N/4) , min_index)];
-
-                for (auto &truck: trucks){
-                    bool found = false;
-                    for (auto node: truck.temp_Route){
-                        if (node.pID == rPackage_ID){
-                            Package package = packages[find_Package_base_on_ID(rPackage_ID)];
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found){
-                        vector<Node> temp;
-
-                        for(int i = 0; i < truck.temp_Route.size(); i++) {
-                            if(truck.temp_Route[i].pID != rPackage_ID) {
-                                temp.pb(truck.temp_Route[i]);
-                            }
-                        }
-                        truck.temp_Route = temp;
-                        current_num_serve -= 1;
-                        current_serve[rPackage_ID-1] = 0;
-                        break;
-                    }
-                }
-
-            }
-
-            shuffle(packages.begin(), packages.end(), rng);
-
-            for(auto &package: packages){
-                if (current_serve[package.pID-1] == 0){
-                    sort(trucks.begin(), trucks.end(), [&](Truck x, Truck y) {
-                        return x.temp_Route.size() > y.temp_Route.size();
-                    });
-                    for(auto &truck: trucks){
-                        if(truck.Insert(package, true, true) != INF){
-                            current_serve[package.pID-1] = 1;
-                            current_num_serve += 1;
-                            break;
-                        }
-                        else{
-                            package.sender.timeDone = 0;
-                            package.receiver.timeDone = 0;
-                        }
-                    }
-                }
-            }
-
-            if(current_num_serve > this->num_serve){
-                for (auto &truck: trucks){
-                    truck.S_R_Route = truck.temp_Route;
-                }
-
-                for (int i = 0; i<N;i++){
-                    this->serve[i] = current_serve[i];
-                }
-                this->num_serve = current_num_serve;
-                // cout << this->num_serve << endl;
-
-
-            }
-
-        }
-    }
-
-    void local_search_n_opt(int n, int time){
-
-
-        while (clock() < time*CLOCKS_PER_SEC){
-
-
-            shuffle(trucks.begin(), trucks.end(), rng);
-
-            
-
-            for(int i = 0; i <= K - n; i++) {
-
-                int current_serve[N];
-                int current_num_serve = this->num_serve;
-
-                //reset temp to best
-                for (auto &truck: trucks){
-                    truck.temp_Route = truck.S_R_Route;
-                }
-                
-
-                for(int j = 0; j < N; j++){
-                    current_serve[j] = this->serve[j];
-                }
-
-
-                for(int j = i; j < i + n; j++) {
-
-                    vector<Node> temp_Route;
-                    
-                    for(int k = 0; k < trucks[j].temp_Route.size(); k++) {
-                        if (k <2){
-                            temp_Route.pb(trucks[j].temp_Route[k]);
-                        }
-                        else{
-
-                            if(trucks[j].temp_Route[k].is_Sen == true) {
-
-                                if(rng() % 4 == 0) {
-
-                                    if( current_serve[trucks[j].temp_Route[k].pID-1] == 0){
-                                        cout << "????????";
-                                        exit(0);
-                                    }
-                                    current_serve[trucks[j].temp_Route[k].pID-1] = 0;
-                                    current_num_serve -=1;
-                                } 
-                                else {
-                                    temp_Route.pb(trucks[j].temp_Route[k]);
-                                }
-                            } 
-
-                            else {
-                                if(current_serve[trucks[j].temp_Route[k].pID-1] == 1) {
-                                    temp_Route.pb(trucks[j].temp_Route[k]);
-                                }
-                            }
-                        }
-
-                    }
-
-                    trucks[j].temp_Route = temp_Route;
-
-                }
-
-                bool canInsert[N];
-
-                for(int j = i; j < i + n; j++) {
-
-                    for(int k = 0; k < N; k++) {
-                        canInsert[k] = true;
-                    }
-
-
-                    while(true) {
-                        int best_pos = -1, best = INF;
-                        for(int k = 0; k < N; k++) {
-
-                            if(current_serve[packages[k].pID-1] == 1 || canInsert[packages[k].pID-1] == false){
-                                continue;
-                            }
-
-                            int current = trucks[j].Insert(packages[k], true, false);
-                            if(current == INF) {
-                                canInsert[packages[k].pID-1] = false;
-                            }
-                            if(current < best){
-                                best = current;
-                                best_pos = k;
-                            }
-                        }
-
-                        if(best_pos == -1) {
-                            break;
-                        }
-
-                        
-
-                        if (trucks[j].Insert(packages[best_pos], true, true) != INF){
-                            if (current_serve[packages[best_pos].pID-1] == 1){
-                                cout << "??";
-                                exit(0);
-                            }
-                            current_serve[packages[best_pos].pID-1] = 1;
-                            current_num_serve ++;
-                        }
-                        else{
-                            cout <<"???";
-                            exit(0);
-                        }
-
-                        
-                    }
-
-                }
-
-
-                if(this->num_serve < current_num_serve) {
-
-                    for(auto &truck: trucks){
-                        truck.S_R_Route = truck.temp_Route;
-                    }
-
-                    for(int j = 0; j < N; j++){
-                        this->serve[j] = current_serve[j];
-                    }
-
-                    this->num_serve = current_num_serve;
-                    // cout << this->num_serve << endl;
-                }
-
-            }
-
-        }
-    }
-
-    //main solve
-    void solve(){
-        for (auto &package: packages){
-            for (auto &truck: trucks){
-                if(truck.Insert(package, false, true) != INF){
-                    this->serve[package.pID-1] = 1;
-                    this->num_serve ++;
-                    break;
-                }
-                else{
-                    package.sender.timeDone = 0;
-                    package.receiver.timeDone = 0;
-                }
-            }
-        }
-
-
-
-        this->local_search(60);
-
-        this->local_search_n_opt(5, 297);
-
-
-        for (auto &truck: trucks){
-            this->solutions[truck.ID-1] = truck.Route_to_Sol();
-
-            if (this->solutions[truck.ID-1].size() == 1){
-                this->used_truck -= 1;
-            }
-        }
-
-        this->read_sol();
-
-        // cout << this->num_serve;
-		
-    }
-
-};
+// main solve function
+int solve(int opt_time, int num_opt, int Del_percentage) { 	
+	//random SEED
+	mt19937 rng(SEED);
+
+	//initial solution
+	int num_serve = 0;
+	for(int Package_ID = 1; Package_ID <= N; Package_ID++) {
+		for(int Truck_ID = 1; Truck_ID <= K; Truck_ID++) {
+			if(Truck_Insert(Package_ID, Truck_ID, 1) != INF) {
+				Serves[Package_ID] = true;
+				num_serve++;
+				break;
+			}
+		}
+	}
+
+	if (nV == 100){
+
+		while(clock() - start_time <= 120 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt -1, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= 240 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= opt_time * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt+1, num_serve, Del_percentage);
+		}
+	}
+
+	else if (nV==200 || nV == 300) {
+		while(clock() - start_time <= 60 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= 180 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt-1, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= opt_time * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt-2, num_serve, Del_percentage);
+		}
+	}
+
+	else {
+		while(clock() - start_time <= 120 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= 240 * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt-1, num_serve, Del_percentage);
+		}
+
+		while(clock() - start_time <= opt_time * CLOCKS_PER_SEC && num_serve < N) {
+			local_n_opt(num_opt-2, num_serve, Del_percentage);
+		}
+	}
+
+
+	return num_serve;
+
+}
+
+//Route to sol
+void print_sol(){
+	for (int Truck_ID = 1; Truck_ID <= K; Truck_ID++){
+		vector<Node> solution;
+
+		solution = Truck_Route_to_Sol(Truck_ID);
+
+		// fprintf(f, "%ld\n", solution.size());
+		cout << solution.size() << endl;
+
+		for (auto &node: solution){
+			// fprintf(f, "%d %lu %s %s\n", node.ID, node.processes.size(), node.timeIn.c_str(), node.timeOut.c_str());
+			cout << node.ID << " " << node.processes.size() << " " << node.timeIn << " " << node.timeOut << endl;
+			for (auto &process: node.processes){
+				// fprintf(f, "%d %s\n", process.pID, process.timeIn.c_str());
+				cout << process.pID << " " << process.timeIn << endl;
+			}
+		}
+	}
+
+}
+
 
 int main(){
-
-    import_data();
-
-    sort(trucks.begin(), trucks.end(), [&](Truck x, Truck y) {
-            return x.vel < y.vel;
-        });
-    
-    sort(packages.begin(), packages.end(), [&](Package x, Package y) {
-            if (x.mid < y.mid){
-                return true;
-            }
-            else if (x.mid == y.mid){
-                if (x.lp < y.lp){
-                    return true;
-                }
-                else if(x.lp == y.lp){
-                    if(x.ld < y.ld){
-                        return true;
-                    }
-                    else if (x.ld == y.ld){
-                        if (x.ep < y.ep){
-                            return true;
-                        }
-                        else{
-                            return false;
-                        }
-                    }
-                    else{
-                        return false;
-                    }
-                }
-                else{
-                    return false;
-                }
-            }
-            else{
-                return false;
-            }
-        });
+	ios_base::sync_with_stdio(0); cin.tie(0); cout.tie(0);
 
 
-    Solver sol;
-    sol.solve();
+	int timeOpt = 299, n_Opt = 3, Del_Percentage = 30;
 
+	import_data();
+
+	int num_serve = solve(timeOpt, n_Opt, Del_Percentage);
+
+	print_sol();
+
+	cout << "\nnumserve: " << num_serve << "\n";
+	cout << "runtime: " << double(clock() - start_time) / double(CLOCKS_PER_SEC) << endl;
 }
